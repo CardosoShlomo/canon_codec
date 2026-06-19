@@ -43,15 +43,16 @@ abstract interface class Codec<T> {
 
   /// A 2-field record, joined by [sep] (default '~'). Each field's encoded form
   /// must be sep-free for a clean round-trip; a token without exactly two parts
-  /// decodes to null.
+  /// decodes to null. `const`-constructible so it can be an enum-constant id:
+  /// `product(widget, Record2Codec(Codec.string, Codec.integer))`.
   static Codec<(A, B)> record2<A, B>(Codec<A> a, Codec<B> b,
           {String sep = '~'}) =>
-      _Record2Codec<A, B>(a, b, sep);
+      Record2Codec<A, B>(a, b, sep);
 
   /// A 3-field record, joined by [sep] (default '~'). Same sep-free contract.
   static Codec<(A, B, C)> record3<A, B, C>(
           Codec<A> a, Codec<B> b, Codec<C> c, {String sep = '~'}) =>
-      _Record3Codec<A, B, C>(a, b, c, sep);
+      Record3Codec<A, B, C>(a, b, c, sep);
 
   /// An ordered list of [element], carried as repeated keys (URL query/fragment
   /// only). Its `decode`/`encode` operate on the repeated-key protocol, not one
@@ -60,7 +61,7 @@ abstract interface class Codec<T> {
 
   /// An ordered list of [element] in ONE token, comma-joined (`a,b,c`). A plain
   /// scalar codec — safe only when element tokens are comma-free.
-  static Codec<List<T>> csv<T>(Codec<T> element) => _CsvCodec<T>(element);
+  static Codec<List<T>> csv<T>(Codec<T> element) => CsvCodec<T>(element);
 }
 
 /// Adds `(#name)` to a codec, overriding a generated field name at the use site
@@ -166,8 +167,10 @@ final class _EnumCodec<E extends Enum> with NameableCodec<E> {
   String encode(E value) => value.name;
 }
 
-final class _Record2Codec<A, B> implements Codec<(A, B)> {
-  const _Record2Codec(this.a, this.b, this.sep);
+/// A 2-field record codec (see [Codec.record2]); `const` so it works as an
+/// enum-constant id, e.g. `Record2Codec(Codec.string, Codec.integer)`.
+final class Record2Codec<A, B> implements Codec<(A, B)> {
+  const Record2Codec(this.a, this.b, [this.sep = '~']);
   final Codec<A> a;
   final Codec<B> b;
   final String sep;
@@ -185,8 +188,9 @@ final class _Record2Codec<A, B> implements Codec<(A, B)> {
       '${a.encode(value.$1)}$sep${b.encode(value.$2)}';
 }
 
-final class _Record3Codec<A, B, C> implements Codec<(A, B, C)> {
-  const _Record3Codec(this.a, this.b, this.c, this.sep);
+/// A 3-field record codec (see [Codec.record3]); `const`-constructible.
+final class Record3Codec<A, B, C> implements Codec<(A, B, C)> {
+  const Record3Codec(this.a, this.b, this.c, [this.sep = '~']);
   final Codec<A> a;
   final Codec<B> b;
   final Codec<C> c;
@@ -206,10 +210,10 @@ final class _Record3Codec<A, B, C> implements Codec<(A, B, C)> {
       '${a.encode(value.$1)}$sep${b.encode(value.$2)}$sep${c.encode(value.$3)}';
 }
 
-/// Comma-joined list in a single token. A normal scalar codec — no repeated-key
-/// protocol.
-final class _CsvCodec<T> implements Codec<List<T>> {
-  const _CsvCodec(this.element);
+/// Comma-joined list in a single token (see [Codec.csv]); `const`-constructible.
+/// A normal scalar codec — no repeated-key protocol.
+final class CsvCodec<T> implements Codec<List<T>> {
+  const CsvCodec(this.element);
   final Codec<T> element;
   @override
   List<T>? decode(String token) {
