@@ -1,0 +1,38 @@
+import 'package:canon_codec/canon_codec.dart';
+import 'package:test/test.dart';
+
+void roundTrips<T>(Codec<T> c, String token, T value) {
+  expect(c.decode(token), value);
+  expect(c.encode(value), token);
+}
+
+void main() {
+  group('scalars', () {
+    test('string', () => roundTrips(Codec.string, 'hello', 'hello'));
+    test('integer', () => roundTrips(Codec.integer, '42', 42));
+    test('number', () => roundTrips(Codec.number, '1.5', 1.5));
+    test('uuid lowercases', () {
+      const u = '550e8400-e29b-41d4-a716-446655440000';
+      expect(Codec.uuid.decode(u.toUpperCase()), u);
+    });
+  });
+
+  group('rejections (decode → null)', () {
+    test('empty string', () => expect(Codec.string.decode(''), isNull));
+    test('non-int', () => expect(Codec.integer.decode('1.5'), isNull));
+    test('leading zero', () => expect(Codec.integer.decode('01'), isNull));
+    test('bad uuid', () => expect(Codec.uuid.decode('nope'), isNull));
+    test('non-finite double', () =>
+        expect(Codec.number.decode('Infinity'), isNull));
+  });
+
+  group('record combinator', () {
+    final c = Codec.record2(Codec.string, Codec.integer);
+    test('round-trips', () => roundTrips(c, 'ad~7', ('ad', 7)));
+    test('wrong arity → null', () => expect(c.decode('ad~7~x'), isNull));
+    test('bad field → null', () => expect(c.decode('ad~nope'), isNull));
+
+    final c3 = Codec.record3(Codec.string, Codec.integer, Codec.string);
+    test('record3 round-trips', () => roundTrips(c3, 'a~1~b', ('a', 1, 'b')));
+  });
+}

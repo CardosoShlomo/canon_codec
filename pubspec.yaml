@@ -1,0 +1,11 @@
+name: canon_codec
+description: "Strict, const, bidirectional value<->string codecs — the shared id/segment codec for the canon ecosystem."
+version: 0.1.0
+repository: https://github.com/CardosoShlomo/canon_codec
+
+environment:
+  sdk: ^3.12.2
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.6
