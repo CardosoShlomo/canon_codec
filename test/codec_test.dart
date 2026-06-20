@@ -15,6 +15,8 @@ void main() {
       const u = '550e8400-e29b-41d4-a716-446655440000';
       expect(Codec.uuid.decode(u.toUpperCase()), u);
     });
+    test('email', () => roundTrips(Codec.email, 'a@b.com', 'a@b.com'));
+    test('bad email', () => expect(Codec.email.decode('nope'), isNull));
   });
 
   group('rejections (decode → null)', () {

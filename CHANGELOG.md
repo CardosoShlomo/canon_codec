@@ -1,3 +1,7 @@
+## 0.1.2
+
+- Add `Codec.email` — lenient `local@domain.tld` validation.
+
 ## 0.1.1
 
 - `Record2Codec`/`Record3Codec`/`CsvCodec` are now public, `const`-constructible classes (the `Codec.recordN`/`Codec.csv` statics still return them), so a record/csv codec can be an enum-constant id.

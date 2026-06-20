@@ -28,6 +28,10 @@ abstract interface class Codec<T> {
   /// design — it should accept any handle a stricter app validator would.
   static const NameableCodec<String> username = _UsernameCodec();
 
+  /// An email address. Lenient `local@domain.tld` shape (one `@`, a dotted
+  /// domain, no spaces) — accept anything a stricter app validator would.
+  static const NameableCodec<String> email = _EmailCodec();
+
   /// Base-10 integer (no leading zeros beyond "0", optional leading "-").
   static const NameableCodec<int> integer = _IntCodec();
 
@@ -113,6 +117,15 @@ final class _UuidCodec with NameableCodec<String> {
 final class _UsernameCodec with NameableCodec<String> {
   const _UsernameCodec();
   static final _re = RegExp(r'^[A-Za-z0-9_.-]+$');
+  @override
+  String? decode(String token) => _re.hasMatch(token) ? token : null;
+  @override
+  String encode(String value) => value;
+}
+
+final class _EmailCodec with NameableCodec<String> {
+  const _EmailCodec();
+  static final _re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
   @override
   String? decode(String token) => _re.hasMatch(token) ? token : null;
   @override
