@@ -45,6 +45,16 @@ abstract interface class Codec<T> {
   static NameableCodec<E> enumValues<E extends Enum>(List<E> values) =>
       _EnumCodec<E>(values);
 
+  /// Matches exactly one literal token (verbatim) — a fixed path word, e.g. in a
+  /// `slots` union: `slots({Codec.literal('me'), Codec.uuid, Codec.username})`.
+  /// The literal doubles as the generated branch name; override with
+  /// `Codec.literal('me')(#name)`.
+  static NameableCodec<String> literal(String value) => _LiteralCodec(value);
+
+  /// Matches any token accepted by [pattern] (decoded verbatim) — a custom value
+  /// shape the battery codecs don't cover.
+  static NameableCodec<String> regex(String pattern) => _RegexCodec(pattern);
+
   /// A 2-field record, joined by [sep] (default '~'). Each field's encoded form
   /// must be sep-free for a clean round-trip; a token without exactly two parts
   /// decodes to null. `const`-constructible so it can be an enum-constant id:
@@ -126,6 +136,31 @@ final class _UsernameCodec with NameableCodec<String> {
 final class _EmailCodec with NameableCodec<String> {
   const _EmailCodec();
   static final _re = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  @override
+  String? decode(String token) => _re.hasMatch(token) ? token : null;
+  @override
+  String encode(String value) => value;
+}
+
+/// A fixed-token codec ([Codec.literal]). Exposed so link-tree assembly can
+/// detect literal branches (e.g. to order an injected id codec after them).
+abstract interface class LiteralCodec implements NameableCodec<String> {
+  String get literal;
+}
+
+final class _LiteralCodec with NameableCodec<String> implements LiteralCodec {
+  const _LiteralCodec(this.literal);
+  @override
+  final String literal;
+  @override
+  String? decode(String token) => token == literal ? literal : null;
+  @override
+  String encode(String value) => value;
+}
+
+final class _RegexCodec with NameableCodec<String> {
+  _RegexCodec(String pattern) : _re = RegExp(pattern);
+  final RegExp _re;
   @override
   String? decode(String token) => _re.hasMatch(token) ? token : null;
   @override

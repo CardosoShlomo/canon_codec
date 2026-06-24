@@ -37,4 +37,20 @@ void main() {
     final c3 = Codec.record3(Codec.string, Codec.integer, Codec.string);
     test('record3 round-trips', () => roundTrips(c3, 'a~1~b', ('a', 1, 'b')));
   });
+
+  group('literal', () {
+    final me = Codec.literal('me');
+    test('matches verbatim', () => roundTrips(me, 'me', 'me'));
+    test('rejects other', () => expect(me.decode('bob'), isNull));
+    test('rejects empty', () => expect(me.decode(''), isNull));
+    test('nameable (decode unchanged)',
+        () => expect(me(#self).decode('me'), 'me'));
+  });
+
+  group('regex', () {
+    final year = Codec.regex(r'^\d{4}$');
+    test('matches', () => roundTrips(year, '2026', '2026'));
+    test('rejects non-match', () => expect(year.decode('26'), isNull));
+    test('nameable', () => expect(year(#yr).decode('2026'), '2026'));
+  });
 }
