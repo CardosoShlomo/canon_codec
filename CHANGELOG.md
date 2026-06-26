@@ -1,3 +1,7 @@
+## 0.1.3
+
+- Add `Codec.literal` (fixed-segment) and `Codec.regex` codecs.
+
 ## 0.1.2
 
 - Add `Codec.email` — lenient `local@domain.tld` validation.
