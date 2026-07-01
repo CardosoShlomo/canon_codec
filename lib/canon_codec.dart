@@ -374,10 +374,10 @@ abstract mixin class IdNode implements Codec<Object?> {
 }
 
 class CompositeId with IdNode {
-  const CompositeId(this.components)
-      : assert(components.length == 2, 'CompositeId currently supports 2 parts');
+  const CompositeId(this.components);
   @override
   final List<IdNode> components;
+  // 2-part for now (Record2Codec); a longer composite drops its extra parts here.
   @override
   Codec get codec => Record2Codec(components[0].codec, components[1].codec);
 }
