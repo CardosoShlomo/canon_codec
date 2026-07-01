@@ -349,10 +349,12 @@ class IDs {
 /// screen keyed by it match ONE component by node identity (`user.inherit(adChat)`
 /// finds the `user` component); `[i]` disambiguates only when the same node repeats.
 abstract mixin class IdNode implements Codec<Object?> {
+  const IdNode();
+
   Codec get codec;
 
   /// The atomic nodes this is made of — `[this]` for an atomic node, the parts
-  /// for a [compose] composite.
+  /// for a [compose]/[CompositeId] composite.
   List<IdNode> get components => [this];
 
   /// The component at [i] — the positional escape hatch when node identity is
@@ -365,14 +367,15 @@ abstract mixin class IdNode implements Codec<Object?> {
   @override
   String encode(Object? value) => codec.encode(value);
 
-  /// A COMPOSITE id-node from atomic [parts]: a screen keyed by it has a record
-  /// id whose components are the parts, each matchable individually by `inherit`.
-  static IdNode compose(List<IdNode> parts) => _CompositeIdNode(parts);
+  /// A COMPOSITE id-node from atomic [parts]: `IdNode.compose([Ids.ad, Ids.user])`
+  /// (or `CompositeId([...])`). Const, so it can key a screen's enum-constant id;
+  /// `inherit` from a screen keyed by it matches one component by node identity.
+  const factory IdNode.compose(List<IdNode> parts) = CompositeId;
 }
 
-class _CompositeIdNode with IdNode {
-  _CompositeIdNode(this.components)
-      : assert(components.length == 2, 'compose currently supports 2 parts');
+class CompositeId with IdNode {
+  const CompositeId(this.components)
+      : assert(components.length == 2, 'CompositeId currently supports 2 parts');
   @override
   final List<IdNode> components;
   @override
