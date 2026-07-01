@@ -46,7 +46,7 @@ abstract interface class Codec<T> {
       _EnumCodec<E>(values);
 
   /// Matches exactly one literal token (verbatim) — a fixed path word, e.g. in a
-  /// `slots` union: `slots({Codec.literal('me'), Codec.uuid, Codec.username})`.
+  /// `slot` union: `slot(Codec.literal('me') | Codec.uuid | Codec.username)`.
   /// The literal doubles as the generated branch name; override with
   /// `Codec.literal('me')(#name)`.
   static NameableCodec<String> literal(String value) => _LiteralCodec(value);
@@ -76,6 +76,39 @@ abstract interface class Codec<T> {
   /// An ordered list of [element] in ONE token, comma-joined (`a,b,c`). A plain
   /// scalar codec — safe only when element tokens are comma-free.
   static Codec<List<T>> csv<T>(Codec<T> element) => CsvCodec<T>(element);
+}
+
+/// `a | b` — a union: either token addresses the same `T`. Decode tries the
+/// branches left-to-right (strict codecs return null on a non-match, so the
+/// first that accepts the token wins); encode delegates to the left branch (the
+/// canonical form). The nav/link generator reads the branches structurally; this
+/// runtime form lets a spec written with `|` compile and round-trip. An
+/// extension, not an interface member, so existing `implements Codec` classes
+/// are unaffected.
+extension CodecUnion<T> on Codec<T> {
+  Codec<T> operator |(Codec<T> other) => UnionCodec<T>([
+        ...this is UnionCodec<T> ? (this as UnionCodec<T>).branches : [this],
+        ...other is UnionCodec<T> ? other.branches : [other],
+      ]);
+}
+
+/// The flattened branches of an `a | b | c` union. Decode tries them left-to-
+/// right (first non-null wins); encode uses the left/canonical branch. The
+/// nav/link layer reads [branches] to recover the ordered union the spec wrote.
+final class UnionCodec<T> implements Codec<T> {
+  const UnionCodec(this.branches);
+  final List<Codec<T>> branches;
+  @override
+  T? decode(String token) {
+    for (final b in branches) {
+      final v = b.decode(token);
+      if (v != null) return v;
+    }
+    return null;
+  }
+
+  @override
+  String encode(T value) => branches.first.encode(value);
 }
 
 /// Adds `(#name)` to a codec, overriding a generated field name at the use site
@@ -290,4 +323,58 @@ final class ListCodec<T> implements Codec<List<T>> {
   @override
   String encode(List<T> value) =>
       throw StateError('Codec.list encodes to repeated keys, not one token');
+}
+
+/// Marks the HAND-WRITTEN enum that is an app's id-space: each row is an identity
+/// carrying its [Codec] — how its key serialises in a URL. Nothing is generated;
+/// the enum IS the holder. Other grammar trees (canon's `@screens`, ledger's
+/// `@registries`) reference these rows by dot-shorthand and read `row.codec` to
+/// encode/decode and to validate a screen `id` or a registry key against them.
+///
+/// Applied as `@IDs()`. There is deliberately no lowercase `const ids`: the
+/// natural name for the enum is `Ids`, and generated nav code uses `ids`
+/// pervasively as an identifier, so a top-level `ids`/`Ids` would shadow it.
+class IDs {
+  const IDs();
+}
+
+/// The contract an `@ids` enum wears: every row carries a [codec]. The node IS a
+/// [Codec] (it delegates to its inner one), so a screen can bind it straight into
+/// a `Codec? id` field (`id: .user`) and a registry can key by it — the SAME node
+/// across both grammar trees. Generators read `node.codec` to recover the value
+/// type (the node itself erases to `Codec<Object?>`).
+///
+/// A node may be COMPOSITE ([compose]) — a record id built from atomic nodes,
+/// each a distinct [components] entry. A composite lets an `inherit` from a
+/// screen keyed by it match ONE component by node identity (`user.inherit(adChat)`
+/// finds the `user` component); `[i]` disambiguates only when the same node repeats.
+abstract mixin class IdNode implements Codec<Object?> {
+  Codec get codec;
+
+  /// The atomic nodes this is made of — `[this]` for an atomic node, the parts
+  /// for a [compose] composite.
+  List<IdNode> get components => [this];
+
+  /// The component at [i] — the positional escape hatch when node identity is
+  /// ambiguous (a composite that repeats a node).
+  IdNode operator [](int i) => components[i];
+
+  @override
+  Object? decode(String token) => codec.decode(token);
+
+  @override
+  String encode(Object? value) => codec.encode(value);
+
+  /// A COMPOSITE id-node from atomic [parts]: a screen keyed by it has a record
+  /// id whose components are the parts, each matchable individually by `inherit`.
+  static IdNode compose(List<IdNode> parts) => _CompositeIdNode(parts);
+}
+
+class _CompositeIdNode with IdNode {
+  _CompositeIdNode(this.components)
+      : assert(components.length == 2, 'compose currently supports 2 parts');
+  @override
+  final List<IdNode> components;
+  @override
+  Codec get codec => Record2Codec(components[0].codec, components[1].codec);
 }
