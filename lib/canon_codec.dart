@@ -490,6 +490,12 @@ abstract mixin class IdNode implements Codec<Object?> {
 /// See [IdNode.compose]. Component nodes are individual fields — a const
 /// constructor can't build a list — so the signature itself caps the arity at
 /// 16 (à la `Object.hash`); generators read the `n*` fields directly.
+///
+/// Why 16: a composite id is a composite PRIMARY KEY, and 16 is the strictest
+/// column cap a mainstream database enforces on one (MySQL/InnoDB and SQL
+/// Server key columns; PostgreSQL and Oracle allow 32) — so canon is never
+/// more restrictive than a production database, while anything past ~4 is
+/// already a modeling smell.
 class CompositeId with IdNode {
   const CompositeId(this.n1, this.n2,
       [this.n3, this.n4, this.n5, this.n6, this.n7, this.n8, this.n9, this.n10,
