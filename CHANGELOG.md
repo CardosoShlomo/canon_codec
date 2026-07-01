@@ -1,3 +1,8 @@
+## 0.1.4
+
+- Add `Codec.composite` / `CompositeCodec` — 2–16 parts, one token, record value.
+- Add the `|` codec-union operator (`UnionCodec`) — first-match-wins alternation.
+
 ## 0.1.3
 
 - Add `Codec.literal` (fixed-segment) and `Codec.regex` codecs.

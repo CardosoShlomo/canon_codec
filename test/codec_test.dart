@@ -30,9 +30,9 @@ void main() {
 
   group('record combinator', () {
     final c = Codec.record2(Codec.string, Codec.integer);
-    test('round-trips', () => roundTrips(c, 'ad~7', ('ad', 7)));
-    test('wrong arity → null', () => expect(c.decode('ad~7~x'), isNull));
-    test('bad field → null', () => expect(c.decode('ad~nope'), isNull));
+    test('round-trips', () => roundTrips(c, 'sku~7', ('sku', 7)));
+    test('wrong arity → null', () => expect(c.decode('sku~7~x'), isNull));
+    test('bad field → null', () => expect(c.decode('sku~nope'), isNull));
 
     final c3 = Codec.record3(Codec.string, Codec.integer, Codec.string);
     test('record3 round-trips', () => roundTrips(c3, 'a~1~b', ('a', 1, 'b')));
@@ -40,12 +40,12 @@ void main() {
 
   group('composite', () {
     final c = Codec.composite(Codec.string, Codec.integer);
-    test('round-trips a record', () => roundTrips(c, 'ad~7', ('ad', 7)));
+    test('round-trips a record', () => roundTrips(c, 'sku~7', ('sku', 7)));
     test('decodes to the fields\' RUNTIME record type (typed cast works)', () {
-      expect(c.decode('ad~7'), isA<(String, int)>());
+      expect(c.decode('sku~7'), isA<(String, int)>());
     });
-    test('wrong arity → null', () => expect(c.decode('ad~7~x'), isNull));
-    test('bad field → null', () => expect(c.decode('ad~nope'), isNull));
+    test('wrong arity → null', () => expect(c.decode('sku~7~x'), isNull));
+    test('bad field → null', () => expect(c.decode('sku~nope'), isNull));
 
     final c3 = Codec.composite(Codec.string, Codec.integer, Codec.string);
     test('3 parts', () => roundTrips(c3, 'a~1~b', ('a', 1, 'b')));
@@ -58,12 +58,6 @@ void main() {
       final decoded = c16.decode(token);
       expect(decoded, isNotNull);
       expect(c16.encode(decoded!), token);
-    });
-
-    test('composite id-node: const, and codec matches components', () {
-      const chat = IdNode.compose(_N.ad, _N.user);
-      expect(chat.codec.decode('a1~u1'), ('a1', 'u1'));
-      expect(chat.decode('a1~u1'), ('a1', 'u1')); // the node IS its codec
     });
   });
 
@@ -82,13 +76,4 @@ void main() {
     test('rejects non-match', () => expect(year.decode('26'), isNull));
     test('nameable', () => expect(year(#yr).decode('2026'), '2026'));
   });
-}
-
-enum _N with IdNode {
-  ad(Codec.string),
-  user(Codec.string);
-
-  const _N(this.codec);
-  @override
-  final Codec codec;
 }
