@@ -38,6 +38,35 @@ void main() {
     test('record3 round-trips', () => roundTrips(c3, 'a~1~b', ('a', 1, 'b')));
   });
 
+  group('composite', () {
+    final c = Codec.composite(Codec.string, Codec.integer);
+    test('round-trips a record', () => roundTrips(c, 'ad~7', ('ad', 7)));
+    test('decodes to the fields\' RUNTIME record type (typed cast works)', () {
+      expect(c.decode('ad~7'), isA<(String, int)>());
+    });
+    test('wrong arity → null', () => expect(c.decode('ad~7~x'), isNull));
+    test('bad field → null', () => expect(c.decode('ad~nope'), isNull));
+
+    final c3 = Codec.composite(Codec.string, Codec.integer, Codec.string);
+    test('3 parts', () => roundTrips(c3, 'a~1~b', ('a', 1, 'b')));
+
+    test('16 parts (the cap) round-trips', () {
+      final s = Codec.string;
+      final c16 = Codec.composite(
+          s, s, s, s, s, s, s, s, s, s, s, s, s, s, s, s);
+      final token = List.generate(16, (i) => 'v$i').join('~');
+      final decoded = c16.decode(token);
+      expect(decoded, isNotNull);
+      expect(c16.encode(decoded!), token);
+    });
+
+    test('composite id-node: const, and codec matches components', () {
+      const chat = IdNode.compose(_N.ad, _N.user);
+      expect(chat.codec.decode('a1~u1'), ('a1', 'u1'));
+      expect(chat.decode('a1~u1'), ('a1', 'u1')); // the node IS its codec
+    });
+  });
+
   group('literal', () {
     final me = Codec.literal('me');
     test('matches verbatim', () => roundTrips(me, 'me', 'me'));
@@ -53,4 +82,13 @@ void main() {
     test('rejects non-match', () => expect(year.decode('26'), isNull));
     test('nameable', () => expect(year(#yr).decode('2026'), '2026'));
   });
+}
+
+enum _N with IdNode {
+  ad(Codec.string),
+  user(Codec.string);
+
+  const _N(this.codec);
+  @override
+  final Codec codec;
 }

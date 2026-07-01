@@ -68,6 +68,19 @@ abstract interface class Codec<T> {
           Codec<A> a, Codec<B> b, Codec<C> c, {String sep = '~'}) =>
       Record3Codec<A, B, C>(a, b, c, sep);
 
+  /// A composite of 2–16 component codecs, one `~`-joined token; the value is a
+  /// positional RECORD of the components' decoded values, in order. The
+  /// 2-required + 14-optional signature is the arity cap (à la `Object.hash`).
+  /// Not `const` ([Codec] is generic, so a const factory can't fix `T` to
+  /// `Record`); the const path is [CompositeCodec] directly — or
+  /// `IdNode.compose`, which is where composites live in practice.
+  static Codec<Record> composite(Codec c1, Codec c2,
+          [Codec? c3, Codec? c4, Codec? c5, Codec? c6, Codec? c7, Codec? c8,
+          Codec? c9, Codec? c10, Codec? c11, Codec? c12, Codec? c13,
+          Codec? c14, Codec? c15, Codec? c16]) =>
+      CompositeCodec(c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13,
+          c14, c15, c16);
+
   /// An ordered list of [element], carried as repeated keys (URL query/fragment
   /// only). Its `decode`/`encode` operate on the repeated-key protocol, not one
   /// token — see [ListCodec].
@@ -291,6 +304,112 @@ final class Record3Codec<A, B, C> implements Codec<(A, B, C)> {
       '${a.encode(value.$1)}$sep${b.encode(value.$2)}$sep${c.encode(value.$3)}';
 }
 
+/// A composite codec (see [Codec.composite]); `const`-constructible. Components
+/// are individual fields — a const constructor can't build a list — so the
+/// signature itself caps the arity at 16. The value is a positional RECORD of
+/// the components' decoded values: a record's runtime type comes from its
+/// fields' runtime types, so a 2-part composite of string codecs decodes to a
+/// value that IS a `(String, String)` — typed casts and structural equality
+/// (repeat-collapse, prefix reuse) work as if it were declared that shape.
+final class CompositeCodec implements Codec<Record> {
+  const CompositeCodec(this.c1, this.c2,
+      [this.c3, this.c4, this.c5, this.c6, this.c7, this.c8, this.c9, this.c10,
+      this.c11, this.c12, this.c13, this.c14, this.c15, this.c16,
+      this.sep = '~']);
+
+  final Codec c1, c2;
+  final Codec? c3, c4, c5, c6, c7, c8, c9, c10, c11, c12, c13, c14, c15, c16;
+  final String sep;
+
+  /// The component codecs, in order (optionals only trail).
+  List<Codec> get codecs => [
+        c1, c2,
+        ?c3, ?c4, ?c5, ?c6, ?c7, ?c8, ?c9, ?c10, ?c11, ?c12, ?c13, ?c14,
+        ?c15, ?c16,
+      ];
+
+  @override
+  Record? decode(String token) {
+    final cs = codecs;
+    final parts = token.split(sep);
+    if (parts.length != cs.length) return null;
+    final v = <Object?>[];
+    for (var i = 0; i < cs.length; i++) {
+      final d = cs[i].decode(parts[i]);
+      if (d == null) return null;
+      v.add(d);
+    }
+    return switch (v.length) {
+      2 => (v[0], v[1]),
+      3 => (v[0], v[1], v[2]),
+      4 => (v[0], v[1], v[2], v[3]),
+      5 => (v[0], v[1], v[2], v[3], v[4]),
+      6 => (v[0], v[1], v[2], v[3], v[4], v[5]),
+      7 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6]),
+      8 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7]),
+      9 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8]),
+      10 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9]),
+      11 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9],
+          v[10]),
+      12 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10],
+          v[11]),
+      13 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10],
+          v[11], v[12]),
+      14 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10],
+          v[11], v[12], v[13]),
+      15 => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10],
+          v[11], v[12], v[13], v[14]),
+      _ => (v[0], v[1], v[2], v[3], v[4], v[5], v[6], v[7], v[8], v[9], v[10],
+          v[11], v[12], v[13], v[14], v[15]),
+    };
+  }
+
+  @override
+  String encode(Record value) {
+    final vs = switch (value) {
+      (Object? a, Object? b) => [a, b],
+      (Object? a, Object? b, Object? c) => [a, b, c],
+      (Object? a, Object? b, Object? c, Object? d) => [a, b, c, d],
+      (Object? a, Object? b, Object? c, Object? d, Object? e) => [a, b, c, d, e],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f) => [
+          a, b, c, d, e, f],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g) => [a, b, c, d, e, f, g],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h) => [a, b, c, d, e, f, g, h],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i) => [a, b, c, d, e, f, g, h, i],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i, Object? j) => [
+          a, b, c, d, e, f, g, h, i, j],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i, Object? j, Object? k) => [
+          a, b, c, d, e, f, g, h, i, j, k],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i, Object? j, Object? k, Object? l) => [
+          a, b, c, d, e, f, g, h, i, j, k, l],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i, Object? j, Object? k, Object? l,
+        Object? m) => [a, b, c, d, e, f, g, h, i, j, k, l, m],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i, Object? j, Object? k, Object? l,
+        Object? m, Object? n) => [a, b, c, d, e, f, g, h, i, j, k, l, m, n],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i, Object? j, Object? k, Object? l,
+        Object? m, Object? n, Object? o) => [
+          a, b, c, d, e, f, g, h, i, j, k, l, m, n, o],
+      (Object? a, Object? b, Object? c, Object? d, Object? e, Object? f,
+        Object? g, Object? h, Object? i, Object? j, Object? k, Object? l,
+        Object? m, Object? n, Object? o, Object? p) => [
+          a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p],
+      _ => throw ArgumentError.value(
+          value, 'value', 'not a 2–16 field positional record'),
+    };
+    final cs = codecs;
+    return [for (var i = 0; i < cs.length; i++) cs[i].encode(vs[i])].join(sep);
+  }
+}
+
 /// Comma-joined list in a single token (see [Codec.csv]); `const`-constructible.
 /// A normal scalar codec — no repeated-key protocol.
 final class CsvCodec<T> implements Codec<List<T>> {
@@ -344,22 +463,13 @@ class IDs {
 /// across both grammar trees. Generators read `node.codec` to recover the value
 /// type (the node itself erases to `Codec<Object?>`).
 ///
-/// A node may be COMPOSITE ([compose]) — a record id built from atomic nodes,
-/// each a distinct [components] entry. A composite lets an `inherit` from a
-/// screen keyed by it match ONE component by node identity (`user.inherit(adChat)`
-/// finds the `user` component); `[i]` disambiguates only when the same node repeats.
+/// A node may be COMPOSITE ([compose]) — an identity made of 2–16 atomic nodes.
+/// A composite lets an `inherit` from a screen keyed by it match ONE component
+/// by node identity (`user.inherit(adChat)` finds the `user` component).
 abstract mixin class IdNode implements Codec<Object?> {
   const IdNode();
 
   Codec get codec;
-
-  /// The atomic nodes this is made of — `[this]` for an atomic node, the parts
-  /// for a [compose]/[CompositeId] composite.
-  List<IdNode> get components => [this];
-
-  /// The component at [i] — the positional escape hatch when node identity is
-  /// ambiguous (a composite that repeats a node).
-  IdNode operator [](int i) => components[i];
 
   @override
   Object? decode(String token) => codec.decode(token);
@@ -367,17 +477,31 @@ abstract mixin class IdNode implements Codec<Object?> {
   @override
   String encode(Object? value) => codec.encode(value);
 
-  /// A COMPOSITE id-node from atomic [parts]: `IdNode.compose([Ids.ad, Ids.user])`
-  /// (or `CompositeId([...])`). Const, so it can key a screen's enum-constant id;
-  /// `inherit` from a screen keyed by it matches one component by node identity.
-  const factory IdNode.compose(List<IdNode> parts) = CompositeId;
+  /// A COMPOSITE id-node from 2–16 atomic nodes:
+  /// `static const IdNode adChat = .compose(ad, user);`. Const, so it can key a
+  /// screen's enum-constant id; `inherit` from a screen keyed by it matches one
+  /// component by node identity.
+  const factory IdNode.compose(IdNode n1, IdNode n2,
+      [IdNode? n3, IdNode? n4, IdNode? n5, IdNode? n6, IdNode? n7, IdNode? n8,
+      IdNode? n9, IdNode? n10, IdNode? n11, IdNode? n12, IdNode? n13,
+      IdNode? n14, IdNode? n15, IdNode? n16]) = CompositeId;
 }
 
+/// See [IdNode.compose]. Component nodes are individual fields — a const
+/// constructor can't build a list — so the signature itself caps the arity at
+/// 16 (à la `Object.hash`); generators read the `n*` fields directly.
 class CompositeId with IdNode {
-  const CompositeId(this.components);
+  const CompositeId(this.n1, this.n2,
+      [this.n3, this.n4, this.n5, this.n6, this.n7, this.n8, this.n9, this.n10,
+      this.n11, this.n12, this.n13, this.n14, this.n15, this.n16]);
+
+  final IdNode n1, n2;
+  final IdNode? n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16;
+
   @override
-  final List<IdNode> components;
-  // 2-part for now (Record2Codec); a longer composite drops its extra parts here.
-  @override
-  Codec get codec => Record2Codec(components[0].codec, components[1].codec);
+  Codec get codec => Codec.composite(
+      n1.codec, n2.codec,
+      n3?.codec, n4?.codec, n5?.codec, n6?.codec, n7?.codec, n8?.codec,
+      n9?.codec, n10?.codec, n11?.codec, n12?.codec, n13?.codec, n14?.codec,
+      n15?.codec, n16?.codec);
 }
