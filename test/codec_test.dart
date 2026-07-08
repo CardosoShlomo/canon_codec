@@ -76,4 +76,42 @@ void main() {
     test('rejects non-match', () => expect(year.decode('26'), isNull));
     test('nameable', () => expect(year(#yr).decode('2026'), '2026'));
   });
+
+  group('concat (+)', () {
+    final thumb = Codec.integer + Codec.literal('_thumb');
+    test('suffix round-trips', () {
+      expect(thumb.encode(3), '3_thumb');
+      expect(thumb.decode('3_thumb'), 3);
+    });
+    test('rejects a token without the suffix', () =>
+        expect(thumb.decode('3'), isNull));
+    test('rejects a suffix over a non-decodable core', () =>
+        expect(thumb.decode('x_thumb'), isNull));
+
+    final prefixed = Codec.literal('v') + Codec.integer;
+    test('prefix round-trips', () {
+      expect(prefixed.encode(2), 'v2');
+      expect(prefixed.decode('v2'), 2);
+    });
+
+    final wrapped = Codec.literal('img_') + Codec.uuid + Codec.literal('.webp');
+    const id = '550e8400-e29b-41d4-a716-446655440000';
+    test('a variable framed on both sides', () {
+      expect(wrapped.encode(id), 'img_$id.webp');
+      expect(wrapped.decode('img_$id.webp'), id);
+    });
+
+    test('flattens left-to-right (one variable across the chain)',
+        () => expect((Codec.literal('a') + Codec.integer + Codec.literal('b'))
+            .decode('a5b'), 5));
+
+    test('two variables have no boundary → rejected', () =>
+        expect(() => Codec.integer + Codec.integer, throwsA(anything)));
+
+    test('composes into a union, thumb branch first', () {
+      final u = (Codec.integer + Codec.literal('_thumb')) | Codec.integer;
+      expect(u.decode('4_thumb'), 4);
+      expect(u.decode('4'), 4);
+    });
+  });
 }

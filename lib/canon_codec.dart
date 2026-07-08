@@ -105,6 +105,60 @@ extension CodecUnion<T> on Codec<T> {
       ]);
 }
 
+/// `+` is ORDERED concatenation within one segment — the string forms of the
+/// members joined in order (`Ids.image + Codec.literal('_thumb')` →
+/// `{imageId}_thumb`). Non-commutative on purpose (prefix ≠ suffix), unlike the
+/// commutative `|`. Exactly one member carries a value; literals frame it.
+extension CodecConcat on Codec<Object?> {
+  Codec<Object?> operator +(Codec<Object?> other) => ConcatCodec([
+        ...this is ConcatCodec ? (this as ConcatCodec).members : [this],
+        ...other is ConcatCodec ? (other as ConcatCodec).members : [other],
+      ]);
+}
+
+/// An ordered sequence of codecs occupying ONE path segment: exactly one
+/// VARIABLE member (carries the value) framed by [LiteralCodec] members
+/// (fixed text). Invertible because the literals anchor the boundaries —
+/// decode strips the leading/trailing literals, delegates the remainder to the
+/// variable. A second variable has no recoverable boundary, so it is rejected.
+final class ConcatCodec implements Codec<Object?> {
+  ConcatCodec(this.members)
+      : assert(members.where((m) => m is! LiteralCodec).length == 1,
+            'concat needs exactly one variable codec (literals frame it)');
+  final List<Codec<Object?>> members;
+
+  int get _varIndex => members.indexWhere((m) => m is! LiteralCodec);
+
+  @override
+  Object? decode(String token) {
+    final v = _varIndex;
+    var s = token;
+    for (var i = 0; i < v; i++) {
+      final lit = (members[i] as LiteralCodec).literal;
+      if (!s.startsWith(lit)) return null;
+      s = s.substring(lit.length);
+    }
+    for (var i = members.length - 1; i > v; i--) {
+      final lit = (members[i] as LiteralCodec).literal;
+      if (!s.endsWith(lit)) return null;
+      s = s.substring(0, s.length - lit.length);
+    }
+    return members[v].decode(s);
+  }
+
+  @override
+  String encode(Object? value) {
+    final v = _varIndex;
+    final b = StringBuffer();
+    for (var i = 0; i < members.length; i++) {
+      b.write(i == v
+          ? members[i].encode(value)
+          : (members[i] as LiteralCodec).literal);
+    }
+    return b.toString();
+  }
+}
+
 /// The flattened branches of an `a | b | c` union. Decode tries them left-to-
 /// right (first non-null wins); encode uses the left/canonical branch. The
 /// nav/link layer reads [branches] to recover the ordered union the spec wrote.
