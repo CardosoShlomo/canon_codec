@@ -112,7 +112,7 @@ extension CodecUnion<T> on Codec<T> {
 extension CodecConcat on Codec<Object?> {
   Codec<Object?> operator +(Codec<Object?> other) => ConcatCodec([
         ...this is ConcatCodec ? (this as ConcatCodec).members : [this],
-        ...other is ConcatCodec ? (other as ConcatCodec).members : [other],
+        ...other is ConcatCodec ? other.members : [other],
       ]);
 }
 
