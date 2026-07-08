@@ -1,3 +1,7 @@
+## 0.3.0
+
+- `IDs`, `IdNode`, `CompositeId` move in from identifiable — an id-node IS a codec, so the id-space tier lives with the codecs.
+
 ## 0.2.0
 
 - Add `+` concat: ordered `ConcatCodec` within one segment (one variable framed by literals, e.g. `Ids.image + Codec.literal('_thumb')`).

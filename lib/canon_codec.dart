@@ -498,3 +498,72 @@ final class ListCodec<T> implements Codec<List<T>> {
       throw StateError('Codec.list encodes to repeated keys, not one token');
 }
 
+/// Marks the HAND-WRITTEN enum that is an app's id-space: each row is an identity
+/// carrying its [Codec] — how its key serialises in a URL. Nothing is generated;
+/// the enum IS the holder. Other grammar trees (canon's `@screens`, ledger's
+/// `@stores`) reference these rows by dot-shorthand and read `row.codec` to
+/// encode/decode and to validate a screen `id` or a store key against them.
+///
+/// Applied as `@IDs()`. There is deliberately no lowercase `const ids`: the
+/// natural name for the enum is `Ids`, and generated nav code uses `ids`
+/// pervasively as an identifier, so a top-level `ids`/`Ids` would shadow it.
+class IDs {
+  const IDs();
+}
+
+/// The contract an `@ids` enum wears: every row carries a [codec]. The node IS a
+/// [Codec] (it delegates to its inner one), so a screen can bind it straight into
+/// a `Codec? id` field (`id: .user`) and a store can key by it — the SAME node
+/// across both grammar trees. Generators read `node.codec` to recover the value
+/// type (the node itself erases to `Codec<Object?>`).
+///
+/// A node may be COMPOSITE ([compose]) — an identity made of 2–16 atomic nodes.
+/// A composite lets an `inherit` from a screen keyed by it match ONE component
+/// by node identity (`author.inherit(review)` finds the `author` component).
+abstract mixin class IdNode implements Codec<Object?> {
+  const IdNode();
+
+  Codec get codec;
+
+  @override
+  Object? decode(String token) => codec.decode(token);
+
+  @override
+  String encode(Object? value) => codec.encode(value);
+
+  /// A COMPOSITE id-node from 2–16 atomic nodes:
+  /// `static const IdNode review = .compose(product, author);`. Const, so it
+  /// can key a screen's enum-constant id; `inherit` from a screen keyed by it
+  /// matches one component by node identity.
+  const factory IdNode.compose(IdNode n1, IdNode n2,
+      [IdNode? n3, IdNode? n4, IdNode? n5, IdNode? n6, IdNode? n7, IdNode? n8,
+      IdNode? n9, IdNode? n10, IdNode? n11, IdNode? n12, IdNode? n13,
+      IdNode? n14, IdNode? n15, IdNode? n16]) = CompositeId;
+}
+
+/// See [IdNode.compose]. Component nodes are individual fields — a const
+/// constructor can't build a list — so the signature itself caps the arity at
+/// 16 (à la `Object.hash`); generators read the `n*` fields directly.
+///
+/// Why 16: a composite id is a composite PRIMARY KEY, and 16 is the strictest
+/// column cap a mainstream database enforces on one (MySQL/InnoDB and SQL
+/// Server key columns; PostgreSQL and Oracle allow 32) — so canon is never
+/// more restrictive than a production database, while anything past ~4 is
+/// already a modeling smell.
+class CompositeId with IdNode {
+  const CompositeId(this.n1, this.n2,
+      [this.n3, this.n4, this.n5, this.n6, this.n7, this.n8, this.n9, this.n10,
+      this.n11, this.n12, this.n13, this.n14, this.n15, this.n16]);
+
+  final IdNode n1, n2;
+  final IdNode? n3, n4, n5, n6, n7, n8, n9, n10, n11, n12, n13, n14, n15, n16;
+
+  // A getter, not a const field: the language forbids instance creation with
+  // parameter args in a const initializer (merely POTENTIALLY constant —
+  // dart-lang/language#4571 would allow it). A node IS a Codec (it delegates),
+  // so the nodes feed CompositeCodec directly.
+  @override
+  Codec get codec => CompositeCodec(n1, n2, n3, n4, n5, n6, n7, n8, n9, n10,
+      n11, n12, n13, n14, n15, n16);
+}
+
