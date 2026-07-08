@@ -1,3 +1,7 @@
+## 0.2.0
+
+- Add `+` concat: ordered `ConcatCodec` within one segment (one variable framed by literals, e.g. `Ids.image + Codec.literal('_thumb')`).
+
 ## 0.1.4
 
 - Add `Codec.composite` / `CompositeCodec` — 2–16 parts, one token, record value.
